@@ -1,0 +1,64 @@
+// Package httpx has the JSON helpers every HTTP handler shares. Errors are
+// RFC 9457 problem details (application/problem+json).
+package httpx
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
+)
+
+// ErrBadRequest marks errors caused by a malformed request.
+var ErrBadRequest = errors.New("bad request")
+
+// MaxBodyBytes limits the request bodies DecodeJSON reads.
+const MaxBodyBytes = 1 << 20
+
+// DecodeJSON reads a JSON request body into v and rejects unknown fields.
+// Its errors wrap ErrBadRequest.
+func DecodeJSON(r *http.Request, v any) error {
+	dec := json.NewDecoder(io.LimitReader(r.Body, MaxBodyBytes))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(v); err != nil {
+		return fmt.Errorf("%w: invalid JSON body: %v", ErrBadRequest, err)
+	}
+	return nil
+}
+
+// JSON writes v with the given status.
+func JSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		slog.Default().Warn("write response", "error", err)
+	}
+}
+
+// Problem is an RFC 9457 error response body.
+type Problem struct {
+	Title  string `json:"title"`
+	Status int    `json:"status"`
+	Detail string `json:"detail,omitempty"`
+	// Code is a stable, machine-readable error code (an RFC 9457 extension
+	// member), e.g. "invalid_credentials".
+	Code string `json:"code,omitempty"`
+}
+
+// WriteProblem writes a problem response. Pass an empty detail for server
+// errors, so internals don't leak to clients.
+func WriteProblem(w http.ResponseWriter, status int, detail string) {
+	WriteProblemCode(w, status, "", detail)
+}
+
+// WriteProblemCode is WriteProblem with a machine-readable error code.
+func WriteProblemCode(w http.ResponseWriter, status int, code, detail string) {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(status)
+	p := Problem{Title: http.StatusText(status), Status: status, Detail: detail, Code: code}
+	if err := json.NewEncoder(w).Encode(p); err != nil {
+		slog.Default().Warn("write response", "error", err)
+	}
+}

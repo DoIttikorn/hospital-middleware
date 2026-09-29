@@ -1,0 +1,58 @@
+# Settings shared by the app.
+x-app-env: &app-env
+  PORT: "8080"
+  DB_HOST: db
+  DB_PORT: "5432"
+  DB_DATABASE: ${DB_DATABASE:-hospital_middleware}
+  DB_USERNAME: ${DB_USERNAME:-app}
+  DB_PASSWORD: ${DB_PASSWORD:-secret}
+  # DEV-ONLY default. Set a real secret (at least 16 bytes) outside local use.
+  JWT_SECRET: ${JWT_SECRET:-dev-only-jwt-secret-change-me}
+  JWT_TTL_MINUTES: ${JWT_TTL_MINUTES:-60}
+  HIS_TIMEOUT_SECONDS: ${HIS_TIMEOUT_SECONDS:-5}
+  HOSPITAL_A_BASE_URL: ${HOSPITAL_A_BASE_URL:-}
+
+x-app-depends: &app-depends
+  db:
+    condition: service_healthy
+
+services:
+  # Entry point: http://localhost:${HTTP_PORT:-80}
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+
+  app:
+    build: .
+    restart: unless-stopped
+    # Not published: reach it through nginx.
+    expose:
+      - "8080"
+    environment: *app-env
+    depends_on: *app-depends
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-app}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+      POSTGRES_DB: ${DB_DATABASE:-hospital_middleware}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  db_data:

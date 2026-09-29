@@ -1,0 +1,175 @@
+# Requests for trying the API by hand. Open in VS Code with the REST Client
+# extension (humao.rest-client) and click "Send Request" above each one.
+#
+# Run "make up" first (nginx on :80), or "make deps-up && make run" and switch
+# baseUrl to :8080. The admin accounts come from the seed migration and are
+# DEV-ONLY (see README).
+#
+# Send the two logins first: the other requests reuse their tokens.
+
+@baseUrl = http://localhost
+# @baseUrl = http://localhost:8080
+@adminPassword = Admin@12345
+# Change it before re-running "create staff", otherwise it returns 409.
+@newStaff = nurse01
+
+### ───────────────────────────── Probes ─────────────────────────────
+
+### Liveness
+GET {{baseUrl}}/livez
+
+### Readiness (503 while the database is down or the server is draining)
+GET {{baseUrl}}/readyz
+
+### Health with every check
+GET {{baseUrl}}/health
+
+### ───────────────────────────── Login ─────────────────────────────
+
+### 200 login as hospital-a admin (token reused below)
+# @name loginA
+POST {{baseUrl}}/staff/login
+Content-Type: application/json
+
+{ "username": "admin", "password": "{{adminPassword}}", "hospital": "hospital-a" }
+
+### 200 login as hospital-b admin (token reused below)
+# @name loginB
+POST {{baseUrl}}/staff/login
+Content-Type: application/json
+
+{ "username": "admin", "password": "{{adminPassword}}", "hospital": "hospital-b" }
+
+### 401 invalid_credentials: wrong password
+POST {{baseUrl}}/staff/login
+Content-Type: application/json
+
+{ "username": "admin", "password": "wrong-password", "hospital": "hospital-a" }
+
+### 401 invalid_credentials: unknown hospital (same answer as a wrong password)
+POST {{baseUrl}}/staff/login
+Content-Type: application/json
+
+{ "username": "admin", "password": "{{adminPassword}}", "hospital": "hospital-x" }
+
+### 400 validation_error: hospital missing
+POST {{baseUrl}}/staff/login
+Content-Type: application/json
+
+{ "username": "admin", "password": "{{adminPassword}}" }
+
+### 400 bad_request: malformed JSON
+POST {{baseUrl}}/staff/login
+Content-Type: application/json
+
+{ "username": "admin",
+
+### ─────────────────────────── Create staff ───────────────────────────
+
+### 201 create staff in the caller's hospital
+POST {{baseUrl}}/staff/create
+Authorization: Bearer {{loginA.response.body.token}}
+Content-Type: application/json
+
+{ "username": "{{newStaff}}", "password": "s3cretPass!", "hospital": "hospital-a" }
+
+### 200 the new staff can log in
+POST {{baseUrl}}/staff/login
+Content-Type: application/json
+
+{ "username": "{{newStaff}}", "password": "s3cretPass!", "hospital": "hospital-a" }
+
+### 409 username_taken: same username again
+POST {{baseUrl}}/staff/create
+Authorization: Bearer {{loginA.response.body.token}}
+Content-Type: application/json
+
+{ "username": "{{newStaff}}", "password": "s3cretPass!", "hospital": "hospital-a" }
+
+### 403 hospital_mismatch: hospital-a admin creating in hospital-b
+POST {{baseUrl}}/staff/create
+Authorization: Bearer {{loginA.response.body.token}}
+Content-Type: application/json
+
+{ "username": "intruder", "password": "s3cretPass!", "hospital": "hospital-b" }
+
+### 404 hospital_not_found
+POST {{baseUrl}}/staff/create
+Authorization: Bearer {{loginA.response.body.token}}
+Content-Type: application/json
+
+{ "username": "nurse99", "password": "s3cretPass!", "hospital": "hospital-x" }
+
+### 400 validation_error: password shorter than 8
+POST {{baseUrl}}/staff/create
+Authorization: Bearer {{loginA.response.body.token}}
+Content-Type: application/json
+
+{ "username": "nurse98", "password": "short", "hospital": "hospital-a" }
+
+### 401 unauthorized: no token
+POST {{baseUrl}}/staff/create
+Content-Type: application/json
+
+{ "username": "nurse97", "password": "s3cretPass!", "hospital": "hospital-a" }
+
+### 401 unauthorized: bad token
+POST {{baseUrl}}/staff/create
+Authorization: Bearer not-a-jwt
+Content-Type: application/json
+
+{ "username": "nurse96", "password": "s3cretPass!", "hospital": "hospital-a" }
+
+### ────────────────────────── Patient search ──────────────────────────
+# Only the caller's hospital is searched. No patients are seeded: they are
+# stored when a search by national_id / passport_id finds them in the HIS.
+
+### 200 no criteria: the hospital's patients, first page
+GET {{baseUrl}}/patient/search
+Authorization: Bearer {{loginA.response.body.token}}
+
+### 200 name prefix (Thai or English), with paging
+GET {{baseUrl}}/patient/search?first_name=som&limit=10&offset=0
+Authorization: Bearer {{loginA.response.body.token}}
+
+### 200 every criterion (AND-ed)
+GET {{baseUrl}}/patient/search
+    ?first_name=somchai
+    &middle_name=
+    &last_name=jaidee
+    &date_of_birth=1990-05-17
+    &phone_number=0812345678
+    &email=somchai@example.com
+Authorization: Bearer {{loginA.response.body.token}}
+
+### national_id: asks hospital-a's HIS when not stored yet.
+### Returns 502 his_unavailable unless HOSPITAL_A_BASE_URL points at a live mock.
+GET {{baseUrl}}/patient/search?national_id=1234567890123
+Authorization: Bearer {{loginA.response.body.token}}
+
+### passport_id: same HIS fallback as national_id
+GET {{baseUrl}}/patient/search?passport_id=AA1234567
+Authorization: Bearer {{loginA.response.body.token}}
+
+### 200 hospital-b has no HIS: an unknown national_id is just an empty result
+GET {{baseUrl}}/patient/search?national_id=1234567890123
+Authorization: Bearer {{loginB.response.body.token}}
+
+### 400 validation_error: date_of_birth not YYYY-MM-DD
+GET {{baseUrl}}/patient/search?date_of_birth=17/05/1990
+Authorization: Bearer {{loginA.response.body.token}}
+
+### 200 limit over 100 is capped: response shows "limit": 100
+GET {{baseUrl}}/patient/search?limit=1000
+Authorization: Bearer {{loginA.response.body.token}}
+
+### 400 validation_error: limit not an integer
+GET {{baseUrl}}/patient/search?limit=ten
+Authorization: Bearer {{loginA.response.body.token}}
+
+### 400 validation_error: negative offset
+GET {{baseUrl}}/patient/search?offset=-1
+Authorization: Bearer {{loginA.response.body.token}}
+
+### 401 unauthorized: no token
+GET {{baseUrl}}/patient/search

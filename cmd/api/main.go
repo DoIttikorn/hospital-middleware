@@ -1,0 +1,62 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/DoIttikorn/hospital-middleware/internal/config"
+	"github.com/DoIttikorn/hospital-middleware/internal/logger"
+	"github.com/DoIttikorn/hospital-middleware/internal/server"
+)
+
+func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	// Settings first: LOG_LEVEL and LOG_FORMAT can come from them.
+	if err := config.Load(ctx); err != nil {
+		fmt.Fprintln(os.Stderr, "load config:", err)
+		os.Exit(1)
+	}
+	log, err := logger.New()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "logger:", err)
+		os.Exit(1)
+	}
+
+	srv, err := server.New(ctx, log)
+	if err != nil {
+		log.Error("create server", "error", err)
+		os.Exit(1)
+	}
+	defer srv.Close()
+
+	errCh := make(chan error, 1)
+	go func() {
+		log.Info("listening", "addr", srv.Addr())
+		errCh <- srv.ListenAndServe()
+	}()
+
+	select {
+	case err := <-errCh:
+		if !errors.Is(err, http.ErrServerClosed) {
+			log.Error("server", "error", err)
+		}
+		return
+	case <-ctx.Done():
+	}
+
+	// Keep this below the pod's terminationGracePeriodSeconds (30s).
+	log.Info("shutting down")
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Error("shutdown", "error", err)
+	}
+}
