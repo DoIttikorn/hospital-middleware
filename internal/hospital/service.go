@@ -2,10 +2,8 @@ package hospital
 
 import "context"
 
-// Service is everything the hospital domain offers. Other domains depend on
-// it, never on a Repository directly, and each picks only the methods it
-// needs by declaring its own narrow interface (staff.Hospitals,
-// patient.Hospitals) that Service satisfies.
+// Service is everything the hospital domain offers. Other domains (staff,
+// patient) take it directly, never a Repository.
 type Service interface {
 	// ByCode returns the hospital with the code, or an error wrapping
 	// ErrNotFound.

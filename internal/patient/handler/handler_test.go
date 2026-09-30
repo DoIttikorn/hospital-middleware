@@ -121,7 +121,7 @@ func TestSearchSuccess(t *testing.T) {
 
 	t.Run("passes every query parameter to the service", func(t *testing.T) {
 		h := newHarness(t)
-		q := "national_id=1&passport_id=2&first_name=3&middle_name=4&last_name=5&date_of_birth=1990-05-17&phone_number=6&email=a%40b.c&limit=7&offset=8"
+		q := "national_id=1&passport_id=2&first_name=3&middle_name=4&last_name=5&date_of_birth=17/05/1990&phone_number=6&email=a%40b.c&limit=7&offset=8"
 		if rec, _ := h.get("/patient/search?"+q, h.token); rec.Code != http.StatusOK {
 			t.Fatalf("status = %d: %s", rec.Code, rec.Body)
 		}
@@ -202,13 +202,27 @@ func TestSearchErrors(t *testing.T) {
 		}
 	})
 
+	t.Run("date_of_birth not DD/MM/YYYY is 400 and never reaches the service", func(t *testing.T) {
+		// The formats themselves are covered in package dates.
+		for _, dob := range []string{"1990-05-17", "31/02/1990"} {
+			h := newHarness(t)
+			rec, body := h.get("/patient/search?date_of_birth="+dob, h.token)
+			if rec.Code != http.StatusBadRequest || body["code"] != "validation_error" || h.fake.called {
+				t.Errorf("%s: status = %d body = %s called = %v", dob, rec.Code, rec.Body, h.fake.called)
+			}
+			if detail, _ := body["detail"].(string); !strings.Contains(detail, "date_of_birth must be DD/MM/YYYY") {
+				t.Errorf("%s: detail = %q", dob, detail)
+			}
+		}
+	})
+
 	tests := []struct {
 		name string
 		err  error
 		want int
 		code any
 	}{
-		{"validation", fmt.Errorf("%w: date_of_birth must be YYYY-MM-DD", patient.ErrInvalid), http.StatusBadRequest, "validation_error"},
+		{"validation", fmt.Errorf("%w: date_of_birth must be DD/MM/YYYY", patient.ErrInvalid), http.StatusBadRequest, "validation_error"},
 		{"HIS unavailable", fmt.Errorf("%w: status 503", patient.ErrHISUnavailable), http.StatusBadGateway, "his_unavailable"},
 		{"unexpected", errors.New("db exploded: secret detail"), http.StatusInternalServerError, nil},
 	}

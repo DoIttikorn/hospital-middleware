@@ -29,17 +29,19 @@ type Tokens interface {
 	TTL() time.Duration
 }
 
-// Hospitals is the part of the hospital domain staff uses: resolving the
-// hospital code clients send. hospital.Service implements it.
-type Hospitals interface {
-	ByCode(ctx context.Context, code string) (hospital.Hospital, error)
-}
-
-var _ Hospitals = hospital.Service(nil)
+// Replaced by hospital.Service, taken directly to keep things simple. This
+// was the narrow interface staff declared for the one method it uses
+// (resolving the hospital code clients send):
+//
+// type Hospitals interface {
+// 	ByCode(ctx context.Context, code string) (hospital.Hospital, error)
+// }
+//
+// var _ Hospitals = hospital.Service(nil)
 
 type service struct {
 	repo      Repository
-	hospitals Hospitals
+	hospitals hospital.Service
 	tokens    Tokens
 	now       func() time.Time
 }
@@ -47,7 +49,7 @@ type service struct {
 var _ Service = (*service)(nil)
 
 // NewService wires the domain to its adapters.
-func NewService(repo Repository, hospitals Hospitals, tokens Tokens) Service {
+func NewService(repo Repository, hospitals hospital.Service, tokens Tokens) Service {
 	return &service{repo: repo, hospitals: hospitals, tokens: tokens, now: now}
 }
 

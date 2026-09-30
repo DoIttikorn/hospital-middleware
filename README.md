@@ -65,8 +65,9 @@ Errors are [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem details
 | `GET` | `/livez`, `/readyz`, `/health` | – | Probes |
 
 `/patient/search` query parameters, all optional: `national_id`, `passport_id`,
-`first_name`, `middle_name`, `last_name`, `date_of_birth` (`YYYY-MM-DD`),
-`phone_number`, `email`, `limit` (default 20, max 100), `offset`.
+`first_name`, `middle_name`, `last_name`, `date_of_birth` (`DD/MM/YYYY`;
+responses keep `YYYY-MM-DD`), `phone_number`, `email`, `limit` (default 20,
+max 100), `offset`.
 No criteria lists the hospital's patients. Names match the start of the Thai
 **or** English name, ignoring case; the other fields match exactly. If a
 `national_id` or `passport_id` is given and the patient is not stored yet, the

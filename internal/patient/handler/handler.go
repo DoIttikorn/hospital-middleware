@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/DoIttikorn/hospital-middleware/internal/auth"
+	"github.com/DoIttikorn/hospital-middleware/internal/dates"
 	"github.com/DoIttikorn/hospital-middleware/internal/httpx"
 	"github.com/DoIttikorn/hospital-middleware/internal/patient"
 )
@@ -68,13 +69,18 @@ func (h *Handler) search(c *gin.Context) {
 		h.fail(c.Writer, err)
 		return
 	}
+	dob, err := dates.ToISO(c.Query("date_of_birth"))
+	if err != nil {
+		h.fail(c.Writer, fmt.Errorf("%w: date_of_birth %w", patient.ErrInvalid, err))
+		return
+	}
 	crit := patient.Criteria{
 		NationalID:  c.Query("national_id"),
 		PassportID:  c.Query("passport_id"),
 		FirstName:   c.Query("first_name"),
 		MiddleName:  c.Query("middle_name"),
 		LastName:    c.Query("last_name"),
-		DateOfBirth: c.Query("date_of_birth"),
+		DateOfBirth: dob,
 		PhoneNumber: c.Query("phone_number"),
 		Email:       c.Query("email"),
 	}

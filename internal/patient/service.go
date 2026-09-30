@@ -18,17 +18,19 @@ type Service interface {
 	Search(ctx context.Context, hospitalID string, c Criteria, p Page) (Result, error)
 }
 
-// Hospitals is the part of the hospital domain patient uses: looking up the
-// staff's hospital to find its HIS. hospital.Service implements it.
-type Hospitals interface {
-	ByID(ctx context.Context, id string) (hospital.Hospital, error)
-}
-
-var _ Hospitals = hospital.Service(nil)
+// Replaced by hospital.Service, taken directly to keep things simple. This
+// was the narrow interface patient declared for the one method it uses
+// (looking up the staff's hospital to find its HIS):
+//
+// type Hospitals interface {
+// 	ByID(ctx context.Context, id string) (hospital.Hospital, error)
+// }
+//
+// var _ Hospitals = hospital.Service(nil)
 
 type service struct {
 	repo      Repository
-	hospitals Hospitals
+	hospitals hospital.Service
 	his       HISRegistry
 	now       func() time.Time
 }
@@ -36,7 +38,7 @@ type service struct {
 var _ Service = (*service)(nil)
 
 // NewService wires the domain to its adapters.
-func NewService(repo Repository, hospitals Hospitals, his HISRegistry) Service {
+func NewService(repo Repository, hospitals hospital.Service, his HISRegistry) Service {
 	return &service{repo: repo, hospitals: hospitals, his: his, now: now}
 }
 

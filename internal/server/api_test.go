@@ -130,7 +130,7 @@ func TestPatientSearchFlow(t *testing.T) {
 	}
 
 	// From then on the patient is found by any field, in hospital A only.
-	for _, q := range []string{"", "?first_name=som", "?first_name=สม", "?last_name=JAI", "?date_of_birth=1990-05-17"} {
+	for _, q := range []string{"", "?first_name=som", "?first_name=สม", "?last_name=JAI", "?date_of_birth=17/05/1990"} {
 		if code, res := search(tokenA, q); code != http.StatusOK || res.Total != 1 {
 			t.Errorf("hospital A search %q = %d %+v, want 1 result", q, code, res)
 		}
@@ -141,8 +141,10 @@ func TestPatientSearchFlow(t *testing.T) {
 		}
 	}
 
-	if code, _ := search(tokenA, "?date_of_birth=not-a-date"); code != http.StatusBadRequest {
-		t.Errorf("bad date = %d, want 400", code)
+	for _, q := range []string{"?date_of_birth=not-a-date", "?date_of_birth=1990-05-17"} {
+		if code, _ := search(tokenA, q); code != http.StatusBadRequest {
+			t.Errorf("bad date %q = %d, want 400", q, code)
+		}
 	}
 	if code, _ := search(tokenA, "?limit=abc"); code != http.StatusBadRequest {
 		t.Errorf("bad limit = %d, want 400", code)

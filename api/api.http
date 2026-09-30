@@ -137,7 +137,7 @@ GET {{baseUrl}}/patient/search
     ?first_name=somchai
     &middle_name=
     &last_name=jaidee
-    &date_of_birth=1990-05-17
+    &date_of_birth=17/05/1990
     &phone_number=0812345678
     &email=somchai@example.com
 Authorization: Bearer {{loginA.response.body.token}}
@@ -155,8 +155,8 @@ Authorization: Bearer {{loginA.response.body.token}}
 GET {{baseUrl}}/patient/search?national_id=1234567890123
 Authorization: Bearer {{loginB.response.body.token}}
 
-### 400 validation_error: date_of_birth not YYYY-MM-DD
-GET {{baseUrl}}/patient/search?date_of_birth=17/05/1990
+### 400 validation_error: date_of_birth not DD/MM/YYYY
+GET {{baseUrl}}/patient/search?date_of_birth=1990-05-17
 Authorization: Bearer {{loginA.response.body.token}}
 
 ### 400 validation_error: national_id must be letters and digits (never sent to the HIS)

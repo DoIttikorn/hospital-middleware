@@ -195,7 +195,7 @@ Responses:
 
 Header: `Authorization: Bearer <jwt>`
 
-Query params (all optional): `national_id`, `passport_id`, `first_name`, `middle_name`, `last_name`, `date_of_birth` (`YYYY-MM-DD`), `phone_number`, `email`. `national_id` and `passport_id` may only contain ASCII letters and digits, at most 20 (the column size); they are sent to the HIS in the URL path.
+Query params (all optional): `national_id`, `passport_id`, `first_name`, `middle_name`, `last_name`, `date_of_birth` (`DD/MM/YYYY`), `phone_number`, `email`. `national_id` and `passport_id` may only contain ASCII letters and digits, at most 20 (the column size); they are sent to the HIS in the URL path.
 
 All criteria are optional (D9). Blank values are treated as absent. With no criteria, the response is the staff's hospital patients ordered by `patient_hn`, paginated by `limit`/`offset`.
 
