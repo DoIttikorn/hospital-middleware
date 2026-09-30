@@ -65,9 +65,11 @@ func (r *Repository) Search(ctx context.Context, hospitalID string, c patient.Cr
 }
 
 // buildWhere turns the criteria into a WHERE clause over $n placeholders.
-// Values only ever travel as arguments, never inside the SQL text.
+// Values only ever travel as arguments, never inside the SQL text. The
+// hospital is compared as a uuid, not the column cast to text, so the
+// (hospital_id, ...) indexes can be used.
 func buildWhere(hospitalID string, c patient.Criteria) (string, []any) {
-	conds := []string{"hospital_id::text = $1"}
+	conds := []string{"hospital_id = $1::uuid"}
 	args := []any{hospitalID}
 	// add appends a condition in which every "?" stands for the same value.
 	add := func(cond string, v any) {

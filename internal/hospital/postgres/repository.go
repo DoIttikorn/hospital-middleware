@@ -31,7 +31,7 @@ func (r *Repository) ByCode(ctx context.Context, code string) (hospital.Hospital
 }
 
 func (r *Repository) ByID(ctx context.Context, id string) (hospital.Hospital, error) {
-	h, err := scan(r.db.QueryRowContext(ctx, selectHospital+` WHERE id::text = $1`, id))
+	h, err := scan(r.db.QueryRowContext(ctx, selectHospital+` WHERE id = $1::uuid`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return hospital.Hospital{}, fmt.Errorf("%w: id %q", hospital.ErrNotFound, id)
 	}

@@ -40,7 +40,7 @@ func (r *Repository) Insert(ctx context.Context, s staff.Staff) error {
 func (r *Repository) ByHospitalAndUsername(ctx context.Context, hospitalID, username string) (staff.Staff, error) {
 	var s staff.Staff
 	err := r.db.QueryRowContext(ctx, `SELECT id::text, hospital_id::text, username, password_hash, created_at, updated_at
-		FROM staff WHERE hospital_id::text = $1 AND username = $2`, hospitalID, username).
+		FROM staff WHERE hospital_id = $1::uuid AND username = $2`, hospitalID, username).
 		Scan(&s.ID, &s.HospitalID, &s.Username, &s.PasswordHash, &s.CreatedAt, &s.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return staff.Staff{}, fmt.Errorf("%w: %q", staff.ErrNotFound, username)

@@ -70,7 +70,8 @@ Errors are [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem details
 No criteria lists the hospital's patients. Names match the start of the Thai
 **or** English name, ignoring case; the other fields match exactly. If a
 `national_id` or `passport_id` is given and the patient is not stored yet, the
-hospital's HIS is asked and the patient is saved.
+hospital's HIS is asked and the patient is saved. Both identifiers must be
+letters and digits only, at most 20; anything else is `400`.
 
 | Status | `code` | When |
 | --- | --- | --- |

@@ -159,6 +159,10 @@ Authorization: Bearer {{loginB.response.body.token}}
 GET {{baseUrl}}/patient/search?date_of_birth=17/05/1990
 Authorization: Bearer {{loginA.response.body.token}}
 
+### 400 validation_error: national_id must be letters and digits (never sent to the HIS)
+GET {{baseUrl}}/patient/search?national_id=..
+Authorization: Bearer {{loginA.response.body.token}}
+
 ### 200 limit over 100 is capped: response shows "limit": 100
 GET {{baseUrl}}/patient/search?limit=1000
 Authorization: Bearer {{loginA.response.body.token}}

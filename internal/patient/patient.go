@@ -52,6 +52,10 @@ type Patient struct {
 // Matching: national_id, passport_id, phone_number and date_of_birth are
 // exact; email is exact ignoring case; the three names are a
 // case-insensitive prefix match against the Thai or the English name.
+//
+// national_id and passport_id may only hold ASCII letters and digits, at
+// most MaxIdentifierLength of them: they are sent to the hospital's HIS in
+// the URL path.
 type Criteria struct {
 	NationalID  string
 	PassportID  string
@@ -77,6 +81,10 @@ const (
 
 // DateLayout is the format of Patient.DateOfBirth and Criteria.DateOfBirth.
 const DateLayout = "2006-01-02"
+
+// MaxIdentifierLength is the longest national_id or passport_id a search
+// accepts, the size of the columns that store them.
+const MaxIdentifierLength = 20
 
 // Result is one page of search results.
 type Result struct {
@@ -108,6 +116,12 @@ func normalize(c Criteria, p Page) (Criteria, Page, error) {
 	c.PhoneNumber = strings.TrimSpace(c.PhoneNumber)
 	c.Email = strings.TrimSpace(c.Email)
 
+	if err := validateIdentifier("national_id", c.NationalID); err != nil {
+		return c, p, err
+	}
+	if err := validateIdentifier("passport_id", c.PassportID); err != nil {
+		return c, p, err
+	}
 	if c.DateOfBirth != "" {
 		if _, err := time.Parse(DateLayout, c.DateOfBirth); err != nil {
 			return c, p, fmt.Errorf("%w: date_of_birth must be YYYY-MM-DD", ErrInvalid)
@@ -125,4 +139,19 @@ func normalize(c Criteria, p Page) (Criteria, Page, error) {
 		return c, p, fmt.Errorf("%w: offset must not be negative", ErrInvalid)
 	}
 	return c, p, nil
+}
+
+// validateIdentifier checks a trimmed national_id or passport_id; blank means
+// absent. Anything but letters and digits, such as "/" or "..", could change
+// the HIS URL it is sent in, so it is rejected before any lookup.
+func validateIdentifier(name, id string) error {
+	for _, r := range id {
+		if !('0' <= r && r <= '9' || 'A' <= r && r <= 'Z' || 'a' <= r && r <= 'z') {
+			return fmt.Errorf("%w: %s must contain only letters and digits", ErrInvalid, name)
+		}
+	}
+	if len(id) > MaxIdentifierLength {
+		return fmt.Errorf("%w: %s must be at most %d characters", ErrInvalid, name, MaxIdentifierLength)
+	}
+	return nil
 }

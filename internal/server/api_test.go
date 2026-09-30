@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -145,5 +146,11 @@ func TestPatientSearchFlow(t *testing.T) {
 	}
 	if code, _ := search(tokenA, "?limit=abc"); code != http.StatusBadRequest {
 		t.Errorf("bad limit = %d, want 400", code)
+	}
+	if code, _ := search(tokenA, "?national_id=.."); code != http.StatusBadRequest {
+		t.Errorf("national_id %q = %d, want 400", "..", code)
+	}
+	if calls := e.his.Calls(); !slices.Equal(calls, []string{somchaiID}) {
+		t.Errorf("HIS calls = %v, want only the first national_id lookup", calls)
 	}
 }

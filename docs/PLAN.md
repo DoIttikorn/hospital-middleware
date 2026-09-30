@@ -195,7 +195,7 @@ Responses:
 
 Header: `Authorization: Bearer <jwt>`
 
-Query params (all optional): `national_id`, `passport_id`, `first_name`, `middle_name`, `last_name`, `date_of_birth` (`YYYY-MM-DD`), `phone_number`, `email`.
+Query params (all optional): `national_id`, `passport_id`, `first_name`, `middle_name`, `last_name`, `date_of_birth` (`YYYY-MM-DD`), `phone_number`, `email`. `national_id` and `passport_id` may only contain ASCII letters and digits, at most 20 (the column size); they are sent to the HIS in the URL path.
 
 All criteria are optional (D9). Blank values are treated as absent. With no criteria, the response is the staff's hospital patients ordered by `patient_hn`, paginated by `limit`/`offset`.
 
@@ -224,7 +224,7 @@ Response `200`:
   ]
 }
 ```
-Errors: `400` bad `date_of_birth` format / invalid `limit` or `offset` · `401` missing/invalid/expired token.
+Errors: `400` bad `date_of_birth` format / `national_id` or `passport_id` not 1–20 letters and digits / invalid `limit` or `offset` · `401` missing/invalid/expired token.
 
 **HIS fallback (D2):** if `national_id` or `passport_id` is present and the local query returns 0 rows, the service calls `his.Client.FindByID(id)` for the staff's hospital, upserts the patient under that hospital, and returns it. HIS `404` → empty result; HIS timeout/5xx → `502` `his_unavailable`.
 
@@ -326,6 +326,8 @@ Seed passwords are for local/demo use and must be changed or removed for any rea
 **Decisions made during implementation**
 - Validation errors are `400` (not krok's `422` for invalid input) to match this spec; malformed JSON is also `400`.
 - `limit` above 100 is **clamped** to 100; a non-numeric or negative `limit`/`offset` is `400`.
+- `national_id` / `passport_id` with anything but letters and digits (e.g. `/`, `..`, spaces, hyphens) or longer than 20 is `400`, checked before the database or the HIS is asked, so an identifier can never change the HIS request path.
+- The postgres adapters compare `hospital_id = $1::uuid` rather than casting the column to text, so the `(hospital_id, ...)` indexes serve every hospital-scoped query.
 - Passwords are limited to 72 bytes (bcrypt's limit) and rejected above it instead of being truncated.
 - Login gives the same `401` for an unknown hospital, unknown user and wrong password, and runs a dummy bcrypt comparison so timing does not tell them apart.
 - A HIS record without `patient_hn` is rejected (`502`); if it lacks the identifier it was searched by, that identifier is stored so the patient can be found again.

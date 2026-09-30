@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/DoIttikorn/hospital-middleware/internal/his/histest"
@@ -167,10 +168,17 @@ func TestSearchFromLocalStore(t *testing.T) {
 			c patient.Criteria
 			p patient.Page
 		}{
-			"bad date":        {patient.Criteria{DateOfBirth: "17/05/1990"}, patient.Page{}},
-			"impossible date": {patient.Criteria{DateOfBirth: "1990-13-45"}, patient.Page{}},
-			"negative limit":  {patient.Criteria{}, patient.Page{Limit: -1}},
-			"negative offset": {patient.Criteria{}, patient.Page{Offset: -1}},
+			"bad date":                  {patient.Criteria{DateOfBirth: "17/05/1990"}, patient.Page{}},
+			"impossible date":           {patient.Criteria{DateOfBirth: "1990-13-45"}, patient.Page{}},
+			"negative limit":            {patient.Criteria{}, patient.Page{Limit: -1}},
+			"negative offset":           {patient.Criteria{}, patient.Page{Offset: -1}},
+			"national_id dot segment":   {patient.Criteria{NationalID: ".."}, patient.Page{}},
+			"national_id with a slash":  {patient.Criteria{NationalID: "123/456"}, patient.Page{}},
+			"national_id with a query":  {patient.Criteria{NationalID: "123?x=1"}, patient.Page{}},
+			"national_id too long":      {patient.Criteria{NationalID: strings.Repeat("1", 21)}, patient.Page{}},
+			"passport_id inner space":   {patient.Criteria{PassportID: "AA 123"}, patient.Page{}},
+			"passport_id non-ASCII":     {patient.Criteria{PassportID: "ก123"}, patient.Page{}},
+			"passport_id with a hyphen": {patient.Criteria{PassportID: "AA-123"}, patient.Page{}},
 		}
 		for name, tt := range tests {
 			t.Run(name, func(t *testing.T) {
@@ -178,6 +186,22 @@ func TestSearchFromLocalStore(t *testing.T) {
 					t.Errorf("err = %v, want ErrInvalid", err)
 				}
 			})
+		}
+		if calls := e.his.Calls(); len(calls) != 0 {
+			t.Errorf("invalid input reached the HIS: %v", calls)
+		}
+	})
+
+	t.Run("identifiers of up to 20 letters and digits are accepted", func(t *testing.T) {
+		e := newEnv(t)
+		longest := strings.Repeat("A1", patient.MaxIdentifierLength/2)
+		for _, c := range []patient.Criteria{{NationalID: longest}, {PassportID: longest}} {
+			if _, err := e.svc.Search(ctx, hospA.ID, c, patient.Page{}); err != nil {
+				t.Errorf("Search(%+v) = %v", c, err)
+			}
+		}
+		if calls := e.his.Calls(); !slices.Equal(calls, []string{longest, longest}) {
+			t.Errorf("HIS calls = %v, want both lookups", calls)
 		}
 	})
 }
