@@ -136,10 +136,9 @@ internal/patient/
 database driver and no web framework; adapters import the domain.
 `internal/server/server.go` is the one place that picks adapters.
 
-Domains talk to each other through services, never repositories.
-`hospital.Service` is passed to `staff` and `patient`, and each declares a
-`Hospitals` interface with only the methods it uses (`staff` needs `ByCode`,
-`patient` needs `ByID`).
+Domains talk to each other through services, never repositories:
+`hospital.Service` is passed directly to `staff` (which uses `ByCode`) and
+`patient` (which uses `ByID`).
 
 ## Tests
 

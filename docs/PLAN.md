@@ -89,7 +89,7 @@ hospital-middleware/
 └── go.mod
 ```
 
-**Layering:** ports and adapters, per domain. The domain package (`staff`, `patient`, `hospital`) holds the model, the business rules (`Service`) and the ports (`Repository`; for patients also `HISClient` / `HISRegistry`). `memory/` and `postgres/` implement the repository, `handler/` is the REST adapter and the only place importing Gin, and `*test/` is the contract every repository adapter must pass. Domain packages import no driver and no web framework. `internal/server/server.go` is the single composition root. Dependencies: `staff` → `hospital`, `auth`; `patient` → `hospital`; `his` → `patient`, `hospital`. A domain uses another domain through its `Service`, never its `Repository`: `hospital.Service` is passed to `staff` and `patient`, which each declare a narrow `Hospitals` interface with only the methods they call (`ByCode` for staff, `ByID` for patient).
+**Layering:** ports and adapters, per domain. The domain package (`staff`, `patient`, `hospital`) holds the model, the business rules (`Service`) and the ports (`Repository`; for patients also `HISClient` / `HISRegistry`). `memory/` and `postgres/` implement the repository, `handler/` is the REST adapter and the only place importing Gin, and `*test/` is the contract every repository adapter must pass. Domain packages import no driver and no web framework. `internal/server/server.go` is the single composition root. Dependencies: `staff` → `hospital`, `auth`; `patient` → `hospital`; `his` → `patient`, `hospital`. A domain uses another domain through its `Service`, never its `Repository`: `hospital.Service` is passed directly to `staff` (which calls `ByCode`) and `patient` (which calls `ByID`).
 
 **Libraries:** krok's choices (Gin, `database/sql` with the pgx driver, slog) are kept. Added: `golang-jwt/jwt/v5`, `golang.org/x/crypto/bcrypt`, `golang-migrate/migrate/v4` (pgx v5 driver, embedded source). Tests use the standard `testing` package like krok's, not testify.
 
@@ -195,7 +195,7 @@ Responses:
 
 Header: `Authorization: Bearer <jwt>`
 
-Query params (all optional): `national_id`, `passport_id`, `first_name`, `middle_name`, `last_name`, `date_of_birth` (`DD/MM/YYYY`), `phone_number`, `email`. `national_id` and `passport_id` may only contain ASCII letters and digits, at most 20 (the column size); they are sent to the HIS in the URL path.
+Query params (all optional): `national_id`, `passport_id`, `first_name`, `middle_name`, `last_name`, `date_of_birth` (`DD/MM/YYYY`; responses keep `YYYY-MM-DD`), `phone_number`, `email`. `national_id` and `passport_id` may only contain ASCII letters and digits, at most 20 (the column size); they are sent to the HIS in the URL path.
 
 All criteria are optional (D9). Blank values are treated as absent. With no criteria, the response is the staff's hospital patients ordered by `patient_hn`, paginated by `limit`/`offset`.
 
